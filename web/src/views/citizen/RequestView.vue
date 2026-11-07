@@ -25,13 +25,16 @@ const resourceIds = ref(String(route.query.ids ?? '').split(',').filter((id) => 
 const resources = computed(() => resourceIds.value.map((id) => RESOURCE_BY_ID.get(id)!));
 
 const helpOptions = (Object.keys(HELP_TYPE_LABEL) as HelpType[]).map((value) => ({ value, label: HELP_TYPE_LABEL[value] }));
-const helpTypes = ref<HelpType[]>([...new Set(resources.value.flatMap((r) => r.helpTypes))].slice(0, 2));
+// 從「確認好了」頁按「請人到家幫我申請」進來：預設到府說明與代填，並直接定位
+const quick = route.query.quick === '1' && !forElder;
+const helpTypes = ref<HelpType[]>(quick ? ['home_visit', 'fill_form'] : [...new Set(resources.value.flatMap((r) => r.helpTypes))].slice(0, 2));
 const phone = ref(forElder ? '' : (identity.user?.phoneNo ?? ''));
 const district = ref<string | null>(forElder ? null : profile.district);
 const village = ref(forElder ? '' : (profile.village ?? ''));
 const address = ref('');
 const note = ref('');
-const locMode = ref<'gps' | 'district'>('gps');
+// 家屬代送時，家屬的手機通常不在長輩家，預設只提供行政區
+const locMode = ref<'gps' | 'district'>(forElder ? 'district' : 'gps');
 const gps = ref<GeoPoint | null>(null);
 const locating = ref(false);
 const agree = ref(false);
@@ -42,14 +45,40 @@ const created = ref<CaseRecord | null>(null);
 const tags = forElder ? [] : tagsFor(profile);
 
 const LOC_OPTIONS = [
-  { value: 'gps' as const, label: '用手機定位' },
+  { value: 'gps' as const, label: forElder ? '用我現在的位置（我在家人家）' : '用手機定位' },
   { value: 'district' as const, label: '只提供行政區' },
 ];
 
 onMounted(async () => {
-  if (forElder) {
+  if (quick) void locate();
+  if (!forElder) return;
+  try {
     elder.value = (await api.familyLinks()).asFamily.find((l) => l.citizenId === forElder) ?? null;
+    // 帶入長輩上一次申請時留下的聯絡資料，家屬不用重新查
+    const last = (await api.elder(forElder)).cases[0];
+    if (last) {
+      phone.value ||= last.phone ?? '';
+      district.value ??= last.district;
+      village.value ||= last.village ?? '';
+      address.value ||= last.address ?? '';
+      prefilled.value = true;
+    }
+  } catch {
+    /* 帶不出來就讓家屬自己填 */
   }
+});
+
+const prefilled = ref(false);
+
+/** 還缺哪些資料才能送出 */
+const missing = computed(() => {
+  const m: string[] = [];
+  if (!resourceIds.value.length) m.push('申請項目');
+  if (!helpTypes.value.length) m.push('需要的協助');
+  if (!district.value) m.push('行政區');
+  if (locMode.value === 'gps' && !gps.value) m.push('取得位置（或改選只提供行政區）');
+  if (!agree.value) m.push('勾選同意');
+  return m;
 });
 
 async function locate() {
@@ -59,7 +88,7 @@ async function locate() {
   if (!gps.value) toast('無法取得定位，可以改選「只提供行政區」');
 }
 
-const canSubmit = computed(() => resourceIds.value.length > 0 && helpTypes.value.length > 0 && !!district.value && agree.value && (locMode.value === 'district' || !!gps.value));
+const canSubmit = computed(() => missing.value.length === 0);
 
 async function submit() {
   if (!canSubmit.value || !district.value) return;
@@ -113,13 +142,16 @@ async function submit() {
   </main>
 
   <main v-else class="page">
-    <p v-if="forElder" class="notice">你正在幫 <strong>{{ elder?.citizenName ?? '家人' }}</strong> 送出協助需求。</p>
+    <p v-if="forElder" class="notice">
+      你正在幫 <strong>{{ elder?.citizenName ?? '家人' }}</strong> 送出協助需求。
+      <template v-if="prefilled">已帶入{{ elder?.citizenName ?? '家人' }}上次申請時留下的聯絡資料，請確認是否正確。</template>
+    </p>
 
     <section class="card">
       <h2>要申請的項目</h2>
       <div v-for="r in resources" :key="r.id" class="spread">
         <span>{{ r.name }}</span>
-        <button type="button" class="btn btn-ghost btn-sm" @click="resourceIds = resourceIds.filter((x) => x !== r.id)">移除</button>
+        <button type="button" class="btn btn-ghost btn-sm nowrap" @click="resourceIds = resourceIds.filter((x) => x !== r.id)">移除</button>
       </div>
       <p v-if="!resources.length" class="muted">還沒有選擇項目，請回推薦頁勾選。</p>
     </section>
@@ -174,7 +206,10 @@ async function submit() {
       <h2>同意事項</h2>
       <label class="check">
         <input v-model="agree" type="checkbox" />
-        <span>我同意把申請項目、聯絡方式和位置，提供給區公所、社工與合作志工，用來安排協助。<strong>（必選）</strong></span>
+        <span v-if="forElder">
+          我已經和{{ elder?.citizenName ?? '家人' }}確認過，{{ elder?.citizenName ?? '家人' }}同意把申請項目、聯絡方式和位置，提供給區公所、社工與合作志工，用來安排協助。<strong>（必選）</strong>
+        </span>
+        <span v-else>我同意把申請項目、聯絡方式和位置，提供給區公所、社工與合作志工，用來安排協助。<strong>（必選）</strong></span>
       </label>
       <label v-if="tags.length" class="check">
         <input v-model="shareTags" type="checkbox" />
@@ -192,13 +227,19 @@ async function submit() {
   </main>
 
   <div v-if="!created" class="sticky-bar">
-    <button type="button" class="btn btn-primary btn-block" :disabled="!canSubmit || submitting" @click="submit">
-      {{ submitting ? '送出中…' : '送出協助需求' }}
-    </button>
+    <div class="stack" style="gap: 6px">
+      <p v-if="missing.length" class="small muted center" aria-live="polite">還需要：{{ missing.join('、') }}</p>
+      <button type="button" class="btn btn-primary btn-block" :disabled="!canSubmit || submitting" @click="submit">
+        {{ submitting ? '送出中…' : '送出協助需求' }}
+      </button>
+    </div>
   </div>
 </template>
 
 <style scoped>
+.page {
+  padding-bottom: 170px;
+}
 .grid2 {
   display: grid;
   grid-template-columns: 1fr 1fr;

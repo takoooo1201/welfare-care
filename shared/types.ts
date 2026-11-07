@@ -65,6 +65,15 @@ export type Category = 'status' | 'allowance' | 'emergency' | 'care' | 'companio
 
 export type HelpType = 'fill_form' | 'collect_docs' | 'accompany' | 'home_visit' | 'phone_explain';
 
+export interface MonthlyAmount {
+  /** 最高金額 */
+  max: number;
+  /** 依收入級距不同的金額（例如中低收入老人生活津貼） */
+  byIncome?: Partial<Record<Exclude<IncomeBand, 'unknown'>, number>>;
+  /** 同一組的津貼不能重複領取，估算時只取金額最高的一項 */
+  group?: string;
+}
+
 export interface Resource {
   id: string;
   name: string;
@@ -77,6 +86,8 @@ export interface Resource {
   documents: string[];
   apply: { where: string; phone?: string; url?: string; note?: string };
   helpTypes: HelpType[]; // 常見的協助方式
+  /** 每月現金補助（元），用來估算「每月約可以領多少」；服務類資源沒有這個欄位 */
+  monthly?: MonthlyAmount;
   notes?: string[];
   source: { title: string; url: string; checked: string };
 }
@@ -95,8 +106,11 @@ export interface MatchResult {
 
 export type CaseStatus = 'received' | 'assigned' | 'preparing' | 'submitted' | 'closed';
 
-/** 個案來源：本人在 App 送出、家屬代為送出、據點或社工代為建檔 */
-export type Channel = 'app' | 'family' | 'intake';
+/** 結案結果：核定通過、未通過、協助完成（服務類，不需審核）、民眾取消 */
+export type Outcome = 'approved' | 'rejected' | 'completed' | 'withdrawn';
+
+/** 個案來源：本人在 App 送出、家屬代為送出、據點或社工代為建檔、鄰居或里長的關懷通報 */
+export type Channel = 'app' | 'family' | 'intake' | 'neighbor';
 
 export type Role = 'district_office' | 'social_worker' | 'volunteer';
 
@@ -114,6 +128,8 @@ export interface CaseLocation extends GeoPoint {
 export interface TimelineEvent {
   at: string; // ISO 時間
   status: CaseStatus;
+  /** 結案時的結果 */
+  outcome?: Outcome;
   note?: string;
   by: string; // 顯示名稱
 }
@@ -138,6 +154,8 @@ export interface CaseRecord {
   note: string;
   channel: Channel;
   status: CaseStatus;
+  /** 結案結果；未結案時為 null 或不存在 */
+  outcome?: Outcome | null;
   assigneeId: string | null;
   assigneeName: string | null;
   createdAt: string;
@@ -147,6 +165,12 @@ export interface CaseRecord {
   /** 依權限可能遮蔽：是否為低收入戶、身障等敏感身分 */
   tags: string[];
   consent: { shareLocation: boolean; shareWithFamily: boolean; method?: string };
+  /** 鄰里通報：通報人的城市通帳號。只用來回報進度給通報人，不會給服務人員看 */
+  reporterId?: string;
+  /** 鄰里通報：通報人同意被聯絡時才有 */
+  reporter?: { name: string; phone: string | null } | null;
+  /** 鄰里通報：通報人看到的狀況 */
+  signs?: string[];
 }
 
 export interface Staff {

@@ -1,4 +1,5 @@
-import type { CaseRecord, CaseStatus, GeoPoint, RouteStop, Staff, Verdict } from '@shared/types.ts';
+import type { AgeGuess, MyReport, Sign } from '@shared/report.ts';
+import type { CaseRecord, CaseStatus, GeoPoint, Outcome, RouteStop, Staff, Verdict } from '@shared/types.ts';
 import { identity } from './identity';
 import { clearStaffSession, staffSession } from './staffSession';
 
@@ -91,6 +92,19 @@ export type CaseInputBody = {
   consentMethod?: string;
 };
 
+export interface ReportBody {
+  district: string;
+  village?: string;
+  place: string;
+  location: GeoPoint;
+  signs: Sign[];
+  age: AgeGuess;
+  nickname: string;
+  note: string;
+  contactOk: boolean;
+  reporterPhone?: string;
+}
+
 export const api = {
   myCases: () => req<CaseRecord[]>('/api/cases/mine'),
   createCase: (body: CaseInputBody) => req<CaseRecord>('/api/cases', { method: 'POST', body }),
@@ -102,7 +116,11 @@ export const api = {
   familyLinks: () => req<{ asElder: FamilyLink[]; asFamily: FamilyLink[] }>('/api/family/links'),
   removeLink: (id: string) => req<void>(`/api/family/links/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   elder: (citizenId: string) => req<ElderData>(`/api/family/elders/${encodeURIComponent(citizenId)}`),
-  shareRecommendations: (items: SharedRec[]) => req<void>('/api/recommendations', { method: 'PUT', body: { items } }),
+  myRecommendations: () => req<{ items: SharedRec[] }>('/api/recommendations'),
+  shareRecommendations: (items: SharedRec[]) => req<{ items: SharedRec[] }>('/api/recommendations', { method: 'PUT', body: { items } }),
+
+  createReport: (body: ReportBody) => req<MyReport>('/api/reports', { method: 'POST', body }),
+  myReports: () => req<MyReport[]>('/api/reports/mine'),
 
   carePoints: (q: { district?: string; lat?: number; lng?: number; limit?: number }) => {
     const params = new URLSearchParams();
@@ -121,8 +139,8 @@ export const api = {
     case: (id: string) => req<CaseRecord>(`/api/staff/cases/${encodeURIComponent(id)}`, { staff: true }),
     assign: (id: string, assigneeId?: string) =>
       req<CaseRecord>(`/api/staff/cases/${encodeURIComponent(id)}/assign`, { method: 'POST', body: { assigneeId }, staff: true }),
-    setStatus: (id: string, status: CaseStatus, note: string) =>
-      req<CaseRecord>(`/api/staff/cases/${encodeURIComponent(id)}/status`, { method: 'POST', body: { status, note }, staff: true }),
+    setStatus: (id: string, status: CaseStatus, note: string, outcome?: Outcome) =>
+      req<CaseRecord>(`/api/staff/cases/${encodeURIComponent(id)}/status`, { method: 'POST', body: { status, note, outcome }, staff: true }),
     intake: (body: CaseInputBody) => req<CaseRecord>('/api/staff/intake', { method: 'POST', body, staff: true }),
     route: () => req<RouteStop[]>('/api/staff/route', { staff: true }),
     saveRoute: (stops: RouteStop[]) => req<RouteStop[]>('/api/staff/route', { method: 'PUT', body: { stops }, staff: true }),

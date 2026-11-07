@@ -126,7 +126,7 @@ function draw(fit: boolean) {
     marker.bindTooltip(m.title, { direction: 'top', offset: [0, -12] });
     marker.on('click', () => emit('select', m.id));
     marker.addTo(layer);
-    if (m.kind !== 'dot') bounds.push([m.lat, m.lng]);
+    if (m.kind !== 'dot' && m.fit !== false) bounds.push([m.lat, m.lng]);
   }
 
   if (props.you) {

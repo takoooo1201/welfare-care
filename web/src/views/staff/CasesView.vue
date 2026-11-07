@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { CHANNEL_LABEL, HELP_TYPE_LABEL, STATUS_LABEL } from '@shared/labels.ts';
+import { caseStatusLabel, CHANNEL_LABEL, HELP_TYPE_LABEL } from '@shared/labels.ts';
 import type { CaseRecord, CaseStatus } from '@shared/types.ts';
 import { api } from '@/lib/api';
 import { staffSession } from '@/lib/staffSession';
@@ -79,7 +79,9 @@ onBeforeUnmount(() => window.clearInterval(timer));
             <strong class="name">{{ c.citizenName }}</strong>
             <span class="small muted">{{ c.district }}{{ c.village ?? '' }}</span>
           </span>
-          <span class="chip" :class="STATUS_CHIP[c.status]">{{ STATUS_LABEL[c.status] }}</span>
+          <span class="chip" :class="c.status === 'closed' && c.outcome === 'approved' ? 'ok' : c.status === 'closed' && c.outcome === 'rejected' ? 'bad' : STATUS_CHIP[c.status]">
+            {{ caseStatusLabel(c) }}
+          </span>
         </div>
         <span>{{ resourceNames(c) }}</span>
         <span class="row">

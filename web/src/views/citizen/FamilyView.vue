@@ -5,7 +5,11 @@ import { RESOURCE_BY_ID } from '@shared/data/resources.ts';
 import AppBar from '@/components/AppBar.vue';
 import { api, type FamilyLink } from '@/lib/api';
 import { FAMILY_DEMO, identity, setDemoAsFamily } from '@/lib/identity';
+import { readLocal, writeLocal } from '@/lib/prefs';
 import { useToast } from '@/lib/toast';
+import { checkNow } from '@/lib/watcher';
+
+type Invite = { code: string; expiresAt: string };
 
 const route = useRoute();
 const router = useRouter();
@@ -15,20 +19,31 @@ const delegateName = delegateId ? RESOURCE_BY_ID.get(delegateId)?.name : null;
 
 const asElder = ref<FamilyLink[]>([]);
 const asFamily = ref<FamilyLink[]>([]);
-const invite = ref<{ code: string; expiresAt: string } | null>(null);
+const invite = ref<Invite | null>(null);
 const code = ref('');
+const binding = ref(false);
 const now = ref(Date.now());
 let clock = 0;
 let poll = 0;
 
 const minutesLeft = computed(() => (invite.value ? Math.max(0, Math.ceil((Date.parse(invite.value.expiresAt) - now.value) / 60000)) : 0));
+const codeReady = computed(() => code.value.replace(/\D/g, '').length === 6);
+
+// 示範模式：同一支手機切換成家屬後，可以一鍵帶入剛才長輩產生的邀請碼
+const DEMO_INVITE_KEY = 'wc.demoInvite';
+const demoInvite = computed(() => {
+  if (!identity.demoAsFamily) return null;
+  const inv = readLocal<Invite | null>(DEMO_INVITE_KEY, null);
+  return inv && Date.parse(inv.expiresAt) > now.value ? inv : null;
+});
 
 async function load() {
   const r = await api.familyLinks().catch(() => null);
   if (!r) return;
   if (invite.value && r.asElder.length > asElder.value.length) {
-    toast(`${r.asElder[r.asElder.length - 1].familyName} 已經完成綁定`);
     invite.value = null;
+    writeLocal(DEMO_INVITE_KEY, null);
+    checkNow(); // 由通知機制跳出「家人完成綁定」
   }
   asElder.value = r.asElder;
   asFamily.value = r.asFamily;
@@ -37,19 +52,26 @@ async function load() {
 async function createInvite() {
   try {
     invite.value = await api.createInvite();
+    now.value = Date.now();
+    writeLocal(DEMO_INVITE_KEY, invite.value);
   } catch (e) {
     toast((e as Error).message);
   }
 }
 
 async function accept() {
+  if (!codeReady.value || binding.value) return;
+  binding.value = true;
   try {
     const r = await api.acceptInvite(code.value);
     toast(`已綁定，你現在可以協助 ${r.citizenName}`);
     code.value = '';
+    writeLocal(DEMO_INVITE_KEY, null);
     await load();
   } catch (e) {
     toast((e as Error).message);
+  } finally {
+    binding.value = false;
   }
 }
 
@@ -81,7 +103,7 @@ onBeforeUnmount(() => {
       <div v-if="invite" class="notice stack center">
         <span>請家人打開城市通 →「福利找上門」→「家屬協助」，輸入這組邀請碼：</span>
         <div class="big-code" aria-live="polite">{{ invite.code }}</div>
-        <span class="small muted">{{ minutesLeft }} 分鐘內有效，只能使用一次</span>
+        <span class="small muted">{{ minutesLeft }} 分鐘內有效，只能使用一次。家人綁定後，這裡會通知你。</span>
       </div>
       <button v-else type="button" class="btn btn-primary btn-block" @click="createInvite">產生邀請碼</button>
 
@@ -96,10 +118,24 @@ onBeforeUnmount(() => {
       <h2>我是家屬，要協助家人</h2>
       <div class="field">
         <label for="fam-code">輸入家人給你的 6 位數邀請碼</label>
-        <div class="row nowrap">
-          <input id="fam-code" v-model="code" class="input" inputmode="numeric" maxlength="6" placeholder="000000" autocomplete="one-time-code" />
-          <button type="button" class="btn btn-primary" :disabled="code.replace(/\D/g, '').length !== 6" @click="accept">綁定</button>
+        <div class="code-row">
+          <input
+            id="fam-code"
+            v-model="code"
+            class="input code-input"
+            inputmode="numeric"
+            maxlength="6"
+            placeholder="000000"
+            autocomplete="one-time-code"
+            @keyup.enter="accept"
+          />
+          <button type="button" class="btn btn-primary" :disabled="!codeReady || binding" @click="accept">
+            {{ binding ? '綁定中…' : '綁定' }}
+          </button>
         </div>
+        <button v-if="demoInvite && !code" type="button" class="btn btn-ghost btn-sm demo-fill" @click="code = demoInvite.code">
+          示範：帶入剛才產生的邀請碼 {{ demoInvite.code }}
+        </button>
       </div>
       <button
         v-for="l in asFamily"
@@ -131,8 +167,21 @@ onBeforeUnmount(() => {
   padding: 10px 0;
   border-top: 1px solid var(--gray-100);
 }
-.nowrap {
-  flex-wrap: nowrap;
+.code-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+.code-row .btn {
+  white-space: nowrap;
+}
+.code-input {
+  font-size: 1.3rem;
+  letter-spacing: 0.25em;
+  font-variant-numeric: tabular-nums;
+}
+.demo-fill {
+  align-self: flex-start;
 }
 .elder {
   box-shadow: none;

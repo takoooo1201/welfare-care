@@ -57,6 +57,12 @@ export function casesByDistrict(district: string): CaseRecord[] {
   return rows.map((r) => JSON.parse(r.data) as CaseRecord);
 }
 
+/** 某位通報人送出的鄰里關懷通報 */
+export function casesByReporter(reporterId: string): CaseRecord[] {
+  const rows = db.prepare("SELECT data FROM cases WHERE json_extract(data, '$.reporterId') = ? ORDER BY updated_at DESC").all(reporterId) as { data: string }[];
+  return rows.map((r) => JSON.parse(r.data) as CaseRecord);
+}
+
 // ── 服務人員 ──
 export function getStaff(id: string): Staff | null {
   const row = db.prepare('SELECT id, name, role, org, district FROM staff WHERE id = ?').get(id) as Staff | undefined;

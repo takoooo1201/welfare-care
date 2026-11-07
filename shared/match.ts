@@ -40,7 +40,7 @@ export function ageOn(birthday: string | null, today: Date = new Date()): number
 }
 
 /** 已知低收入戶或中低收入戶時，可以推得收入級距 */
-function effectiveIncome(p: Profile): IncomeBand {
+export function effectiveIncome(p: Profile): IncomeBand {
   if (p.income !== 'unknown') return p.income;
   if (p.household === 'low') return 'le_low';
   if (p.household === 'midLow') return 'le_midlow';

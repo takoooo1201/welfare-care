@@ -3,13 +3,15 @@ import { computed, onMounted, ref } from 'vue';
 import { RouterLink, useRouter } from 'vue-router';
 import { RESOURCES } from '@shared/data/resources.ts';
 import { CATEGORY_LABEL } from '@shared/labels.ts';
-import { matchAll, unansweredFields } from '@shared/match.ts';
+import { matchAll } from '@shared/match.ts';
+import { estimateMonthly, nextQuestion } from '@shared/questions.ts';
 import type { MatchResult } from '@shared/types.ts';
 import AppBar from '@/components/AppBar.vue';
 import VerdictBadge from '@/components/VerdictBadge.vue';
 import { api, type FamilyLink } from '@/lib/api';
 import { loadProfile } from '@/lib/profile';
 import { useToast } from '@/lib/toast';
+import { money } from '@/lib/tween';
 
 const router = useRouter();
 const toast = useToast();
@@ -18,7 +20,8 @@ const results = matchAll(RESOURCES, profile);
 const likely = results.filter((r) => r.verdict === 'likely');
 const possible = results.filter((r) => r.verdict === 'possible');
 const unlikely = results.filter((r) => r.verdict === 'unlikely');
-const unanswered = unansweredFields(profile).length;
+const monthly = estimateMonthly(results, profile);
+const moreToAsk = !!nextQuestion(profile, RESOURCES);
 
 const selected = ref<string[]>([]);
 const showUnlikely = ref(false);
@@ -57,10 +60,10 @@ async function shareWithFamily() {
   <main class="page">
     <section class="card hero">
       <h2>找到 {{ likely.length }} 項很可能符合<span v-if="possible.length">、{{ possible.length }} 項待確認</span></h2>
-      <p class="small muted">依你填的資料初步比對，實際資格以主管機關審核為準。</p>
-      <RouterLink v-if="unanswered" to="/profile" class="btn btn-secondary btn-sm">
-        還有 {{ unanswered }} 題不確定，回答後會更準確
-      </RouterLink>
+      <p v-if="monthly" class="money">現金補助每月約 <strong>{{ money(monthly) }}</strong> 元</p>
+      <p class="small muted">依你的資料在手機上初步比對，實際資格以主管機關審核為準。</p>
+      <RouterLink v-if="moreToAsk" to="/ask" class="btn btn-secondary btn-sm">再回答幾題，確認更多項目</RouterLink>
+      <RouterLink v-else to="/profile" class="btn btn-ghost btn-sm">修改我的資料</RouterLink>
     </section>
 
     <p class="muted">勾選想申請的項目，我們可以幫你找人協助申請。</p>
@@ -69,7 +72,10 @@ async function shareWithFamily() {
       <h2 v-if="group.items.length" class="section-title">{{ group.title }}</h2>
       <article v-for="r in group.items" :key="r.resource.id" class="card match" :class="{ picked: selected.includes(r.resource.id) }">
         <div class="spread">
-          <span class="chip primary">{{ CATEGORY_LABEL[r.resource.category] }}</span>
+          <span class="row chips">
+            <span class="chip primary">{{ CATEGORY_LABEL[r.resource.category] }}</span>
+            <span v-if="r.resource.monthly" class="chip accent">每月最多 {{ money(r.resource.monthly.max) }} 元</span>
+          </span>
           <VerdictBadge :verdict="r.verdict" :unknown-count="r.unknownCount" />
         </div>
         <button type="button" class="link-area" @click="router.push(`/resource/${r.resource.id}`)">
@@ -134,6 +140,13 @@ async function shareWithFamily() {
   flex-direction: column;
   gap: 6px;
   cursor: pointer;
+}
+.chips {
+  gap: 6px;
+}
+.money strong {
+  font-size: 1.5rem;
+  color: var(--tp-primary-dark);
 }
 .ok-text {
   color: var(--ok);

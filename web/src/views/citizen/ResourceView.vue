@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { RESOURCES, RESOURCE_BY_ID } from '@shared/data/resources.ts';
 import { formatDistance } from '@shared/geo.ts';
 import { CATEGORY_LABEL } from '@shared/labels.ts';
-import { matchAll, matchResource } from '@shared/match.ts';
+import { EMPTY_PROFILE, matchAll, matchResource } from '@shared/match.ts';
 import type { GeoPoint } from '@shared/types.ts';
 import AppBar from '@/components/AppBar.vue';
 import CriteriaList from '@/components/CriteriaList.vue';
@@ -15,20 +15,30 @@ import { loadProfile } from '@/lib/profile';
 import { useToast } from '@/lib/toast';
 
 const props = defineProps<{ id: string }>();
+const route = useRoute();
 const router = useRouter();
 const toast = useToast();
 const profile = loadProfile();
 const resource = RESOURCE_BY_ID.get(props.id);
-const result = resource ? matchResource(resource, profile) : null;
+// 家屬從長輩頁面點進來（?for=長輩 id）：資格不能用家屬自己的資料比對，只列出條件
+const forElder = typeof route.query.for === 'string' ? route.query.for : null;
+const result = resource ? matchResource(resource, forElder ? EMPTY_PROFILE : profile) : null;
 
 const family = ref<FamilyLink[]>([]);
 const points = ref<CarePoint[]>([]);
 const you = ref<GeoPoint | null>(null);
 const locating = ref(false);
+const delegated = ref(false);
+const delegating = ref(false);
 const isCarePoints = computed(() => resource?.id === 'tp-care-points');
+const familyNames = computed(() => family.value.map((f) => f.familyName).join('、'));
 
 onMounted(async () => {
-  family.value = (await api.familyLinks().catch(() => ({ asElder: [] }))).asElder;
+  if (!forElder) family.value = (await api.familyLinks().catch(() => ({ asElder: [] }))).asElder;
+  if (family.value.length && resource) {
+    const shared = await api.myRecommendations().catch(() => ({ items: [] }));
+    delegated.value = shared.items.some((r) => r.resourceId === resource.id && r.delegated);
+  }
   if (isCarePoints.value && profile.district) points.value = (await api.carePoints({ district: profile.district, limit: 5 }).catch(() => [])) ?? [];
 });
 
@@ -44,7 +54,7 @@ async function findNearby() {
 }
 
 async function delegate() {
-  if (!resource) return;
+  if (!resource || delegating.value) return;
   if (!family.value.length) {
     router.push({ path: '/family', query: { delegate: resource.id } });
     return;
@@ -52,11 +62,15 @@ async function delegate() {
   const items = matchAll(RESOURCES, profile)
     .filter((r) => r.verdict !== 'unlikely' || r.resource.id === resource.id)
     .map((r) => ({ resourceId: r.resource.id, verdict: r.verdict, delegated: r.resource.id === resource.id }));
+  delegating.value = true;
   try {
     await api.shareRecommendations(items);
-    toast(`已請 ${family.value.map((f) => f.familyName).join('、')} 協助申請「${resource.name}」`);
+    delegated.value = true;
+    toast(`已請 ${familyNames.value} 協助申請「${resource.name}」，他打開城市通時會收到通知`);
   } catch (e) {
     toast((e as Error).message);
+  } finally {
+    delegating.value = false;
   }
 }
 
@@ -70,7 +84,7 @@ const osm = (p: CarePoint) => `https://www.openstreetmap.org/?mlat=${p.lat}&mlon
       <section class="card">
         <div class="spread">
           <span class="chip primary">{{ CATEGORY_LABEL[resource.category] }}</span>
-          <VerdictBadge :verdict="result.verdict" :unknown-count="result.unknownCount" />
+          <VerdictBadge v-if="!forElder" :verdict="result.verdict" :unknown-count="result.unknownCount" />
         </div>
         <h1>{{ resource.name }}</h1>
         <p>{{ resource.summary }}</p>
@@ -83,6 +97,7 @@ const osm = (p: CarePoint) => `https://www.openstreetmap.org/?mlat=${p.lat}&mlon
 
       <section class="card">
         <h2>資格條件</h2>
+        <p v-if="forElder" class="small muted">以下是申請條件；家人是否符合，以他分享的比對結果和承辦單位審核為準。</p>
         <CriteriaList :criteria="result.criteria" />
         <ul v-if="resource.notes?.length" class="notes small">
           <li v-for="n in resource.notes" :key="n">{{ n }}</li>
@@ -136,9 +151,17 @@ const osm = (p: CarePoint) => `https://www.openstreetmap.org/?mlat=${p.lat}&mlon
       </p>
     </main>
     <div class="sticky-bar">
-      <div class="row two-btn">
-        <button type="button" class="btn btn-secondary" @click="delegate">轉交家屬協助</button>
-        <button type="button" class="btn btn-primary" @click="router.push(`/request?ids=${resource.id}`)">請人協助申請</button>
+      <div class="stack" style="gap: 6px">
+        <button v-if="forElder" type="button" class="btn btn-primary btn-block" @click="router.push(`/request?ids=${resource.id}&for=${forElder}`)">
+          幫家人送出協助需求
+        </button>
+        <p v-if="delegated" class="small center ok-text" aria-live="polite">✓ 已轉交給 {{ familyNames }} 協助</p>
+        <div v-if="!forElder" class="two-btn">
+          <button type="button" class="btn btn-secondary" :disabled="delegating || delegated" @click="delegate">
+            {{ delegated ? '已轉交家屬' : delegating ? '轉交中…' : '轉交家屬協助' }}
+          </button>
+          <button type="button" class="btn btn-primary" @click="router.push(`/request?ids=${resource.id}`)">請人協助申請</button>
+        </div>
       </div>
     </div>
   </template>
@@ -161,6 +184,18 @@ const osm = (p: CarePoint) => `https://www.openstreetmap.org/?mlat=${p.lat}&mlon
 }
 .two-btn {
   display: grid;
-  grid-template-columns: 1fr 1.4fr;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.two-btn .btn {
+  padding: 0 10px;
+  white-space: nowrap;
+}
+.ok-text {
+  color: var(--ok);
+  font-weight: 700;
+}
+.page {
+  padding-bottom: 160px;
 }
 </style>

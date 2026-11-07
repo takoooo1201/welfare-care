@@ -1,10 +1,12 @@
 <script setup lang="ts">
 // 順路雷達：把服務人員今天的訪視路線畫在地圖上，找出路線兩側一定距離內、正在等待協助的個案，
-// 讓社工或志工可以「順路」收件、陪同或關懷。
+// 讓社工或志工可以「順路」收件、陪同或關懷。鄰里關懷通報（本人沒有申請、由鄰居通報）以 ♥ 標示，
+// 多日未見的排在最前面。
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { distanceToRoute, formatDistance } from '@shared/geo.ts';
-import { HELP_TYPE_LABEL, STATUS_LABEL } from '@shared/labels.ts';
+import { CHANNEL_LABEL, HELP_TYPE_LABEL, STATUS_LABEL } from '@shared/labels.ts';
+import { isUrgent } from '@shared/report.ts';
 import type { CaseRecord, RouteStop, Staff } from '@shared/types.ts';
 import LeafletMap from '@/components/LeafletMap.vue';
 import { api, type CarePoint } from '@/lib/api';
@@ -58,7 +60,20 @@ const candidates = computed<Hit[]>(() =>
     .map((c) => ({ c, ...distanceToRoute(c.location!, route.value) }))
     .sort((a, b) => a.meters - b.meters),
 );
-const onRoute = computed(() => candidates.value.filter((h) => h.meters <= radius.value));
+const urgentOf = (c: CaseRecord) => c.channel === 'neighbor' && isUrgent(c.signs ?? []);
+const onRoute = computed(() =>
+  candidates.value.filter((h) => h.meters <= radius.value).sort((a, b) => Number(urgentOf(b.c)) - Number(urgentOf(a.c)) || a.meters - b.meters),
+);
+/** 順路可以多關心的人數，依來源分類；繞過去再回到路線，大約多走兩倍的距離 */
+const summary = computed(() => {
+  const waiting = onRoute.value.filter((h) => h.c.status === 'received');
+  const byChannel = (['app', 'family', 'neighbor', 'intake'] as const)
+    .map((ch) => ({ ch, n: waiting.filter((h) => h.c.channel === ch).length }))
+    .filter((x) => x.n > 0);
+  const detour = waiting.reduce((sum, h) => sum + h.meters * 2, 0);
+  return { count: waiting.length, byChannel, detour };
+});
+const NEIGHBOR_COLOR = '#b4469a';
 const offRoute = computed(() => candidates.value.filter((h) => h.meters > radius.value));
 
 const markers = computed<MapMarker[]>(() => {
@@ -66,10 +81,11 @@ const markers = computed<MapMarker[]>(() => {
     id: c.id,
     lat: c.location!.lat,
     lng: c.location!.lng,
-    color: meters <= radius.value ? STATUS_COLOR[c.status] : '#9aa7ae',
-    label: meters <= radius.value ? '★' : '',
+    color: meters > radius.value ? '#9aa7ae' : c.channel === 'neighbor' && c.status === 'received' ? NEIGHBOR_COLOR : STATUS_COLOR[c.status],
+    label: meters > radius.value ? '' : c.channel === 'neighbor' ? '♥' : '★',
     title: `${c.citizenName}・${STATUS_LABEL[c.status]}`,
     approximate: c.location!.approximate,
+    fit: meters <= radius.value,
   }));
   if (showCarePoints.value) {
     for (const p of carePoints.value) {
@@ -101,7 +117,8 @@ async function claim(c: CaseRecord, assigneeId?: string) {
   try {
     const updated = await api.staff.assign(c.id, assigneeId);
     cases.value = cases.value.map((x) => (x.id === updated.id ? updated : x));
-    toast(assigneeId && assigneeId !== me.value?.id ? `已指派給 ${team.value.find((s) => s.id === assigneeId)?.name}` : '已接案，民眾會收到「已安排人員協助」的通知');
+    const done = c.channel === 'neighbor' ? '通報的鄰居會收到「有人接手了」的通知' : '民眾會收到「已安排人員協助」的通知';
+    toast(assigneeId && assigneeId !== me.value?.id ? `已指派給 ${team.value.find((s) => s.id === assigneeId)?.name}` : `已接案，${done}`);
   } catch (e) {
     toast((e as Error).message);
   }
@@ -164,14 +181,19 @@ const RADII = [200, 400, 800];
       <p class="small muted legend">
         <span class="dot" style="background: #1d6f80"></span>今日路線
         <span class="dot" style="background: #d9822b"></span>待安排
+        <span class="dot" style="background: #b4469a"></span>鄰里通報
         <span class="dot" style="background: #9aa7ae"></span>不在範圍內
         <span v-if="me?.role === 'volunteer'">虛線圈為大略位置</span>
       </p>
     </section>
 
     <aside class="side">
-      <section class="card">
-        <h2>順路可協助（{{ onRoute.length }}）</h2>
+      <section class="card summary">
+        <h2>今天順路可以多關心 {{ summary.count }} 位</h2>
+        <p v-if="summary.count" class="small">全部順路過去，大約只要多走 {{ formatDistance(summary.detour) }}</p>
+        <div v-if="summary.byChannel.length" class="row">
+          <span v-for="x in summary.byChannel" :key="x.ch" class="chip" :class="x.ch === 'neighbor' ? 'care' : 'primary'">{{ CHANNEL_LABEL[x.ch] }} {{ x.n }}</span>
+        </div>
         <p class="small muted">離你今天路線 {{ radius }} 公尺內、正在等待協助的民眾</p>
       </section>
 
@@ -180,13 +202,20 @@ const RADII = [200, 400, 800];
           <strong>{{ h.c.citizenName }}</strong>
           <span class="chip ok">離路線 {{ formatDistance(h.meters) }}</span>
         </div>
+        <span v-if="h.c.channel !== 'app'" class="row">
+          <span class="chip" :class="h.c.channel === 'neighbor' ? 'care' : ''">{{ CHANNEL_LABEL[h.c.channel] }}</span>
+          <span v-if="urgentOf(h.c)" class="chip bad">多日未見・優先</span>
+        </span>
         <span class="small muted">{{ segmentText(h) }}</span>
-        <span class="small">{{ resourceNames(h.c) }}</span>
+        <span v-if="h.c.channel === 'neighbor' && h.c.tags.length" class="small">看到的狀況：{{ h.c.tags.filter((t) => t !== '65 歲以上').join('、') }}</span>
+        <span class="small">{{ h.c.channel === 'neighbor' ? '可評估：' : '' }}{{ resourceNames(h.c) }}</span>
         <span class="row">
           <span v-for="t in h.c.helpTypes" :key="t" class="chip accent">{{ HELP_TYPE_LABEL[t] }}</span>
         </span>
         <div class="row" @click.stop>
-          <button v-if="h.c.status === 'received'" type="button" class="btn btn-sm btn-primary" @click="claim(h.c)">我順路接案</button>
+          <button v-if="h.c.status === 'received'" type="button" class="btn btn-sm btn-primary" @click="claim(h.c)">
+            {{ h.c.channel === 'neighbor' ? '我順路去關心' : '我順路接案' }}
+          </button>
           <span v-else class="chip primary">我負責・{{ STATUS_LABEL[h.c.status] }}</span>
           <button type="button" class="btn btn-sm btn-secondary" @click="addToRoute(h)">加入路線</button>
           <button type="button" class="btn btn-sm btn-ghost" @click="router.push(`/staff/case/${h.c.id}`)">詳情</button>
@@ -254,6 +283,11 @@ const RADII = [200, 400, 800];
   max-height: calc(100vh - 100px);
   overflow-y: auto;
   padding-bottom: 24px;
+}
+.summary {
+  background: var(--tp-primary-50);
+  border: 1px solid var(--tp-primary-100);
+  gap: 6px;
 }
 .hit {
   cursor: pointer;

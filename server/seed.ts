@@ -1,5 +1,6 @@
 // 示範資料：服務人員帳號、今日訪視路線與幾筆待協助個案。
 // 姓名、電話、地址皆為虛構，只用於展示，不對應任何真實民眾。
+import { SIGNS, type Sign } from '../shared/report.ts';
 import type { CaseRecord, CaseStatus, Channel, HelpType, RouteStop, Staff } from '../shared/types.ts';
 import { db, saveCase, saveRoute } from './db.ts';
 
@@ -42,6 +43,8 @@ interface Demo {
   assignee?: string;
   daysAgo: number;
   district?: string;
+  /** 鄰里關懷通報：通報人看到的狀況 */
+  signs?: Sign[];
 }
 
 const CASES: Demo[] = [
@@ -81,6 +84,18 @@ const CASES: Demo[] = [
     tags: ['經濟弱勢'], note: '', channel: 'family', status: 'submitted', assignee: 'zs-sw', daysAgo: 10,
   },
   {
+    name: '林奶奶（鄰居通報）', phone: '', village: '正得里', address: '吉林路巷內公寓 2 樓，一樓是洗衣店（示範）', lat: 25.0556, lng: 121.5316,
+    resourceIds: ['tp-alone-elder-emergency', 'tp-care-points', 'tp-meal-service'], helpTypes: ['home_visit'],
+    tags: ['65 歲以上', '疑似獨居', '飲食不足'], note: '常看到她一個人提便當回家，最近好像都沒買了', channel: 'neighbor', status: 'received', daysAgo: 0,
+    signs: ['alone', 'meals'],
+  },
+  {
+    name: '未具名的長輩（鄰居通報）', phone: '', village: '中吉里', address: '松江路旁巷口的老公寓（示範）', lat: 25.0582, lng: 121.5325,
+    resourceIds: ['tp-alone-elder-emergency', 'tp-care-points', 'ltc-2', 'tp-meal-service'], helpTypes: ['home_visit'],
+    tags: ['65 歲以上', '多日未見', '行動不便'], note: '平常每天早上都會在巷口坐，已經三天沒看到了', channel: 'neighbor', status: 'received', daysAgo: 0,
+    signs: ['unseen', 'mobility'],
+  },
+  {
     name: '許文雄', phone: '0912-000-108', village: '延平里', address: '臺北市大同區延平北路（示範地址）', lat: 25.063, lng: 121.513,
     resourceIds: ['tp-mid-low-elder-allowance'], helpTypes: ['collect_docs'],
     tags: ['65 歲以上'], note: '', channel: 'app', status: 'received', daysAgo: 1, district: '大同區',
@@ -100,22 +115,29 @@ export function seedIfEmpty(): void {
     const created = new Date(Date.now() - d.daysAgo * 86_400_000 - (i + 1) * 3_600_000);
     const assignee = STAFF.find((s) => s.id === d.assignee);
     const steps = FLOW.slice(0, FLOW.indexOf(d.status) + 1);
-    const by = d.channel === 'intake' ? '中山區公所 陳怡君' : d.channel === 'family' ? '家屬' : d.name;
+    const by = { intake: '中山區公所 陳怡君', family: '家屬', neighbor: '鄰居（城市通通報）', app: d.name }[d.channel];
+    const firstNote = {
+      intake: '據點代為建檔（同意方式：書面同意）',
+      neighbor: `鄰里關懷通報：${(d.signs ?? []).map((s) => SIGNS.find((x) => x.value === s)!.label).join('、')}`,
+      family: '於城市通送出需求',
+      app: '於城市通送出需求',
+    }[d.channel];
     const timeline = steps.map((status, k) => ({
       at: new Date(created.getTime() + k * 7_200_000).toISOString(),
       status,
       by: k === 0 ? by : (assignee?.name ?? '服務人員'),
-      note: k === 0 ? (d.channel === 'intake' ? '據點代為建檔（同意方式：書面同意）' : '於城市通送出需求') : undefined,
+      note: k === 0 ? firstNote : undefined,
     }));
+    const neighbor = d.channel === 'neighbor';
     const c: CaseRecord = {
       id: `WCDEMO-${String(i + 1).padStart(2, '0')}`,
-      citizenId: `demo-citizen-${i + 1}`,
+      citizenId: neighbor ? `neighbor-demo-${i + 1}` : `demo-citizen-${i + 1}`,
       citizenName: d.name,
-      phone: d.phone,
+      phone: d.phone || null,
       district: d.district ?? '中山區',
       village: d.village,
       address: d.address,
-      location: { lat: d.lat, lng: d.lng, source: d.channel === 'intake' ? 'address' : 'gps' },
+      location: { lat: d.lat, lng: d.lng, source: d.channel === 'intake' || neighbor ? 'address' : 'gps' },
       resourceIds: d.resourceIds,
       helpTypes: d.helpTypes,
       note: d.note,
@@ -128,7 +150,12 @@ export function seedIfEmpty(): void {
       timeline,
       documents: [{ name: '申請書', ready: d.status === 'submitted' }, { name: '新式戶口名簿影本', ready: d.status !== 'received' }],
       tags: d.tags,
-      consent: { shareLocation: true, shareWithFamily: true, method: d.channel === 'intake' ? '書面同意' : undefined },
+      consent: {
+        shareLocation: true,
+        shareWithFamily: !neighbor,
+        method: d.channel === 'intake' ? '書面同意' : neighbor ? '尚未取得本人同意，訪視時說明並確認意願' : undefined,
+      },
+      ...(neighbor ? { reporterId: 'demo-reporter', reporter: null, signs: d.signs } : {}),
     };
     saveCase(c);
   });

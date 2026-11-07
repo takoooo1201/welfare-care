@@ -67,7 +67,7 @@ export function parseCaseInput(body: unknown): CaseInput {
 
 export function createCase(
   input: CaseInput,
-  meta: { citizenId: string; channel: Channel; by: string; note: string; consentMethod?: string },
+  meta: { citizenId: string; channel: Channel; by: string; note: string; consentMethod?: string; extra?: Partial<CaseRecord> },
 ): CaseRecord {
   const now = new Date().toISOString();
   const docs = new Set<string>();
@@ -95,6 +95,7 @@ export function createCase(
     documents: [...docs].map((name) => ({ name, ready: false })),
     tags: input.tags,
     consent: { shareLocation: input.shareLocation, shareWithFamily: input.shareWithFamily, method: meta.consentMethod },
+    ...meta.extra,
   };
   saveCase(c);
   return c;

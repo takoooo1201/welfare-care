@@ -93,9 +93,34 @@ async function logout() {
   align-items: center;
   gap: 8px;
 }
+/* 手機：第一列是品牌與登入者，第二列是功能分頁 */
 @media (max-width: 720px) {
+  .top {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 6px 8px;
+    padding: 8px 12px 0;
+  }
   .who .muted {
     display: none;
+  }
+  .tabs {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    margin: 0 -12px;
+    padding: 0 8px;
+    border-top: 1px solid var(--gray-100);
+  }
+  .tab {
+    flex: 1;
+    text-align: center;
+    padding: 12px 8px;
+    border-radius: 0;
+    border-bottom: 3px solid transparent;
+  }
+  .tab.on {
+    background: none;
+    border-bottom-color: var(--tp-primary-dark);
   }
 }
 </style>

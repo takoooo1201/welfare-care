@@ -1,7 +1,6 @@
 // 服務管理介面 API（區公所、社工、志工）
 import { Router } from 'express';
-import { STATUS_LABEL } from '../../shared/labels.ts';
-import type { CaseStatus, RouteStop } from '../../shared/types.ts';
+import type { CaseStatus, Outcome, RouteStop } from '../../shared/types.ts';
 import { createSession, HttpError, staffFrom } from '../auth.ts';
 import { createCase, parseCaseInput } from '../cases.ts';
 import { casesByDistrict, db, getCase, getRoute, getStaff, listStaff, saveCase, saveRoute } from '../db.ts';
@@ -39,7 +38,7 @@ staffRouter.get('/staff/team', (req, res) => {
 
 staffRouter.get('/staff/cases', (req, res) => {
   const staff = staffFrom(req);
-  res.json(casesByDistrict(staff.district).map((c) => viewForStaff(c, staff)));
+  res.json(casesByDistrict(staff.district).filter((c) => canSee(c, staff)).map((c) => viewForStaff(c, staff)));
 });
 
 staffRouter.get('/staff/cases/:id', (req, res) => {
@@ -74,6 +73,12 @@ staffRouter.post('/staff/cases/:id/assign', (req, res) => {
   res.json(viewForStaff(c, staff));
 });
 
+const OUTCOMES: Outcome[] = ['approved', 'rejected', 'completed', 'withdrawn'];
+
+/**
+ * 更新狀態或新增處理紀錄（狀態不變、只寫紀錄也可以）。
+ * 結案時必須選擇結果（核定通過、未通過…），民眾與家屬會收到通知。
+ */
 staffRouter.post('/staff/cases/:id/status', (req, res) => {
   const staff = staffFrom(req);
   const c = getCase(req.params.id);
@@ -82,9 +87,18 @@ staffRouter.post('/staff/cases/:id/status', (req, res) => {
   if (!allowedStatuses(staff).includes(status)) throw new HttpError(403, '你的角色不能設定這個狀態');
   if (staff.role === 'volunteer' && c.assigneeId !== staff.id) throw new HttpError(403, '請先接案');
   const note = typeof req.body?.note === 'string' ? req.body.note.trim().slice(0, 200) : '';
+  let outcome: Outcome | undefined;
+  if (status === 'closed') {
+    outcome = req.body?.outcome as Outcome;
+    if (!OUTCOMES.includes(outcome)) throw new HttpError(400, '請選擇結案結果');
+    if (c.status === 'closed' && c.outcome === outcome && !note) throw new HttpError(400, '請填寫處理紀錄');
+  } else if (status === c.status && !note) {
+    throw new HttpError(400, '請填寫處理紀錄');
+  }
   const now = new Date().toISOString();
   c.status = status;
-  c.timeline.push({ at: now, status, by: staff.name, note: note || `更新為「${STATUS_LABEL[status]}」` });
+  c.outcome = outcome ?? null;
+  c.timeline.push({ at: now, status, ...(outcome ? { outcome } : {}), by: staff.name, ...(note ? { note } : {}) });
   c.updatedAt = now;
   saveCase(c);
   res.json(viewForStaff(c, staff));

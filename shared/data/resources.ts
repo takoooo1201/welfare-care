@@ -82,6 +82,7 @@ export const RESOURCES: Resource[] = [
     documents: ['申請書', '新式戶口名簿', '存摺封面影本'],
     apply: { where: '戶籍所在地區公所社會課', phone: '1999', url: 'https://dosw.gov.taipei/cp.aspx?n=FCF3DAE98DDA289F' },
     helpTypes: ['fill_form', 'collect_docs', 'accompany'],
+    monthly: { max: 8329, byIncome: { le_low: 8329, le_midlow: 8329, le_1_5x: 4164 }, group: 'living' },
     notes: ['已經是臺北市低收入戶或中低收入戶的長者，部分條件可免再審查。'],
     source: { title: '臺北市政府社會局－中低收入老人生活津貼申請說明', url: 'https://dosw.gov.taipei/cp.aspx?n=FCF3DAE98DDA289F', checked: CHECKED },
   },
@@ -107,6 +108,7 @@ export const RESOURCES: Resource[] = [
     ],
     apply: { where: '線上申請或洽社會局老人福利科', phone: '1999', url: 'https://dosw.gov.taipei/cp.aspx?n=22B00B4927757FFE' },
     helpTypes: ['phone_explain', 'fill_form'],
+    monthly: { max: 826 },
     notes: [
       '多數長者由社會局主動審查，符合資格會直接送健保署減免，不一定要另外申請。',
       '65～69 歲的中低收入老人也是補助對象。',
@@ -132,6 +134,7 @@ export const RESOURCES: Resource[] = [
     documents: ['申請書', '身心障礙證明', '新式戶口名簿影本', '存摺封面影本'],
     apply: { where: '戶籍所在地區公所社會課', phone: '1999', url: 'https://dosw.gov.taipei/cp.aspx?n=C764A5808F9A3B08' },
     helpTypes: ['fill_form', 'collect_docs', 'accompany'],
+    monthly: { max: 9485, group: 'living' },
     notes: [
       '低收入戶與中低收入戶由社會局主動核發，不必另外申請。',
       '同時具有長者身分的低收入戶，老人生活補助與身障生活補助只能擇一領取。',
@@ -308,6 +311,7 @@ export const RESOURCES: Resource[] = [
     documents: ['原住民給付申請書', '存簿封面影本'],
     apply: { where: '勞動部勞工保險局（郵寄或臨櫃）', phone: '02-2396-1266', url: 'https://www.bli.gov.tw/0014344.html' },
     helpTypes: ['fill_form', 'collect_docs'],
+    monthly: { max: 4049, group: 'living' },
     notes: ['年滿 55 歲當月就可以申請；給付從申請當月起算，不會追溯補發，越早申請越好。'],
     source: { title: '勞動部勞工保險局－原住民給付請領資格及給付金額', url: 'https://www.bli.gov.tw/0014344.html', checked: CHECKED },
   },

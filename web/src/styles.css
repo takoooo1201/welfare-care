@@ -141,6 +141,10 @@ select {
   font-size: 1.12rem;
   text-align: center;
   grid-column: 2;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .appbar .appbar-right {
   grid-column: 3;
@@ -369,6 +373,10 @@ input[type='date'].input::-webkit-date-and-time-value {
   background: var(--bad-bg);
   color: var(--bad);
 }
+.chip.care {
+  background: #f8e6f2;
+  color: #8a2f74;
+}
 .chip.accent {
   background: var(--tp-secondary-50);
   color: var(--warn);
@@ -402,9 +410,27 @@ input[type='date'].input::-webkit-date-and-time-value {
   background: var(--gray-900);
   color: #fff;
   padding: 14px 16px;
+  border: none;
   border-radius: 14px;
   box-shadow: 0 8px 24px rgb(0 0 0 / 25%);
   font-size: 0.95rem;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  cursor: pointer;
+}
+.toast.actionable {
+  border-left: 6px solid var(--tp-secondary);
+}
+.toast-title {
+  font-weight: 800;
+}
+.toast-more {
+  align-self: flex-end;
+  color: var(--tp-secondary);
+  font-weight: 700;
+  font-size: 0.88rem;
 }
 .toast-enter-active,
 .toast-leave-active {
@@ -468,4 +494,12 @@ input[type='date'].input::-webkit-date-and-time-value {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+.nowrap {
+  white-space: nowrap;
+  flex: none;
+}
+/* 大字模式：首頁的撥號按鈕改成上下排列，避免超出畫面 */
+html.large-text .call-grid {
+  grid-template-columns: 1fr;
 }

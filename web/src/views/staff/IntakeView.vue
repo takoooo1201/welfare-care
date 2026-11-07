@@ -40,11 +40,17 @@ const CONSENT = [
   { value: '法定代理人同意', label: '法定代理人同意' },
 ];
 
-// 很可能符合的項目預設勾選
+// 很可能符合的項目預設勾選。修改資格問題時保留工作人員手動的勾選：
+// 只自動加入「新變成很可能符合」的項目，並移除已經不在比對結果裡的項目。
+let wasLikely = new Set<string>();
 watch(
   results,
   (rs) => {
-    picked.value = rs.filter((r) => r.verdict === 'likely').map((r) => r.resource.id);
+    const ids = new Set(rs.map((r) => r.resource.id));
+    const likely = rs.filter((r) => r.verdict === 'likely').map((r) => r.resource.id);
+    const kept = picked.value.filter((id) => ids.has(id));
+    picked.value = [...kept, ...likely.filter((id) => !wasLikely.has(id) && !kept.includes(id))];
+    wasLikely = new Set(likely);
   },
   { immediate: true },
 );
