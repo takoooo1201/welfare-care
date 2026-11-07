@@ -7,6 +7,7 @@ export const router = createRouter({
   routes: [
     { path: '/', component: () => import('./views/citizen/HomeView.vue') },
     { path: '/ask', component: () => import('./views/citizen/AskView.vue') },
+    { path: '/talk', component: () => import('./views/citizen/TalkView.vue') },
     { path: '/report', component: () => import('./views/citizen/ReportView.vue') },
     { path: '/profile', component: () => import('./views/citizen/ProfileView.vue') },
     { path: '/matches', component: () => import('./views/citizen/MatchesView.vue') },

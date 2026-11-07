@@ -1,0 +1,142 @@
+[
+ {
+  "id": "tp-low-income",
+  "name": "低收入戶資格申請",
+  "summary": "家庭收入在最低生活費以下時，可以申請成為低收入戶，按月領生活扶助，之後申請其他福利也會更容易。",
+  "tags": [
+   "經濟弱勢"
+  ],
+  "category": "status"
+ },
+ {
+  "id": "tp-mid-low-income",
+  "name": "中低收入戶資格申請",
+  "summary": "收入略高於低收入戶標準的家庭，可以申請中低收入戶，取得健保保費與學雜費的補助。",
+  "tags": [
+   "經濟弱勢"
+  ],
+  "category": "status"
+ },
+ {
+  "id": "tp-mid-low-elder-allowance",
+  "name": "中低收入老人生活津貼",
+  "summary": "65 歲以上、家庭收入不高的長者，每個月可以領生活津貼。",
+  "tags": [
+   "長者",
+   "經濟弱勢"
+  ],
+  "category": "allowance"
+ },
+ {
+  "id": "tp-elder-nhi",
+  "name": "老人健保自付額補助",
+  "summary": "符合條件的長者，健保費自付額由市政府補助，每月最多 826 元。",
+  "tags": [
+   "長者",
+   "原住民"
+  ],
+  "category": "health"
+ },
+ {
+  "id": "tp-disability-living",
+  "name": "身心障礙者生活補助",
+  "summary": "領有身心障礙證明、家庭收入不高的人，每個月可以領生活補助。",
+  "tags": [
+   "身心障礙",
+   "經濟弱勢"
+  ],
+  "category": "allowance"
+ },
+ {
+  "id": "tp-disability-aids",
+  "name": "身心障礙者輔具費用補助",
+  "summary": "需要輪椅、助行器等輔具的身障者，可以申請購買費用補助。",
+  "tags": [
+   "身心障礙"
+  ],
+  "category": "health"
+ },
+ {
+  "id": "tp-emergency-relief",
+  "name": "臺北市急難救助",
+  "summary": "家裡突然發生變故、生活陷入困難時，可以申請急難救助金。",
+  "tags": [
+   "經濟弱勢",
+   "急難"
+  ],
+  "category": "emergency"
+ },
+ {
+  "id": "tp-emergency-bailout",
+  "name": "急難紓困方案（原馬上關懷）",
+  "summary": "家人過世、失蹤、重病或失業造成生活困難，可以很快拿到一筆紓困金。",
+  "tags": [
+   "經濟弱勢",
+   "急難"
+  ],
+  "category": "emergency"
+ },
+ {
+  "id": "ltc-2",
+  "name": "長期照顧服務（長照 2.0）",
+  "summary": "洗澡、吃飯、出門需要別人幫忙時，可以申請居家照顧、交通接送、輔具與喘息服務。",
+  "tags": [
+   "長者",
+   "身心障礙",
+   "原住民"
+  ],
+  "category": "care"
+ },
+ {
+  "id": "tp-meal-service",
+  "name": "失能者營養餐飲服務（送餐到家）",
+  "summary": "沒辦法自己出門吃飯或煮飯時，可以申請送餐到家。",
+  "tags": [
+   "長者",
+   "身心障礙",
+   "獨居"
+  ],
+  "category": "care"
+ },
+ {
+  "id": "tp-alone-elder-emergency",
+  "name": "獨居長者緊急救援系統",
+  "summary": "獨居長者在家裝設緊急救援設備，跌倒或身體不舒服時按一下就有人來幫忙。",
+  "tags": [
+   "長者",
+   "獨居",
+   "身心障礙"
+  ],
+  "category": "care"
+ },
+ {
+  "id": "tp-care-points",
+  "name": "社區照顧關懷據點",
+  "summary": "社區裡的長者據點，有人陪你聊天、一起吃飯、做運動，也會打電話問候。",
+  "tags": [
+   "長者",
+   "陪伴",
+   "獨居"
+  ],
+  "category": "companion"
+ },
+ {
+  "id": "bli-indigenous-pension",
+  "name": "國民年金原住民給付",
+  "summary": "55 歲到 64 歲的原住民，每個月可以領原住民給付，不用繳保費。",
+  "tags": [
+   "原住民"
+  ],
+  "category": "allowance"
+ },
+ {
+  "id": "tp-new-resident-center",
+  "name": "新住民家庭服務中心",
+  "summary": "給新住民與家人的諮詢和陪伴，有外語、法律和心理的協助。",
+  "tags": [
+   "新住民",
+   "陪伴"
+  ],
+  "category": "service"
+ }
+]

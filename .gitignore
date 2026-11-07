@@ -6,3 +6,8 @@ data/*.db-*
 *.log
 .env
 .env.*
+# Laya：Python 環境、匯出的大模型（用 laya/export_onnx.py 重建）
+laya/.venv/
+laya/artifacts/
+laya/__pycache__/
+web/public/models/

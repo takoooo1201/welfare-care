@@ -6,3 +6,7 @@ data/*.db-*
 *.log
 .env
 .env.*
+# Laya：Python 環境與中間產物（約 4 GB）不進容器；web/public/models/ 要打包，給「用說的找福利」使用
+laya/.venv
+laya/artifacts
+laya/__pycache__

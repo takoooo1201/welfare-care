@@ -21,6 +21,10 @@ export default defineConfig({
     fs: { allow: ['..'] },
     proxy: { '/api': `http://localhost:${API_PORT}` },
   },
+  // Laya（onnxruntime-web）在 Web Worker 裡執行：Worker 用 ES module 才能 import；
+  // onnxruntime-web 不要預先打包，否則它找不到自己的 .wasm
+  worker: { format: 'es' },
+  optimizeDeps: { exclude: ['onnxruntime-web'] },
   build: {
     outDir: '../dist',
     emptyOutDir: true,

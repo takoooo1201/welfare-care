@@ -117,6 +117,14 @@ function toggleLarge() {
       </template>
     </section>
 
+    <button type="button" class="card tappable talk-card" @click="router.push('/talk')">
+      <span class="spread">
+        <strong class="card-title">🎙️ 用說的找福利</strong>
+        <span aria-hidden="true">›</span>
+      </span>
+      <span class="muted">不想一題一題回答？用自己的話說說你的狀況，手機上的 AI 幫你挑出最適合的 5 項。</span>
+    </button>
+
     <button type="button" class="card tappable care-card" @click="router.push('/report')">
       <span class="spread">
         <strong class="card-title">💛 我擔心身邊的長輩</strong>
@@ -198,6 +206,9 @@ function toggleLarge() {
   line-height: 1.2;
   color: var(--tp-primary-dark);
   font-variant-numeric: tabular-nums;
+}
+.talk-card {
+  border-left: 6px solid var(--tp-primary);
 }
 .care-card {
   background: var(--tp-secondary-50);

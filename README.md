@@ -27,6 +27,7 @@
 |---|---|
 | 打開就找到 | 透過 `userinfo` 帶入生日、行政區、里、是否設籍臺北市、原住民身分，首頁不用填表就顯示「N 項福利可能在等你」與每月最多可能多領的金額 |
 | 最少提問（`shared/questions.ts`） | 一題一頁、大按鈕，每題都能選「不知道，跳過」。對每個還沒回答的問題試算每個答案，挑「能讓最多項福利變成很可能符合」的那一題；每答一題，「很可能符合」的項數和每月金額當場更新，並標出新確認的項目。每題下方說明「為什麼問這題」 |
+| **用說的找福利**（`/talk`） | 不想一題一題回答的人，可以用自己的話說（也可以用手機鍵盤的麥克風）：「我七十八歲，一個人住，腳不好很少出門」。**手機上的開源模型 Laya** 聽出 14 種狀況（一個人住、生活需要人幫忙、失智、經濟困難…），年齡從文字裡的數字讀出，再交給同一套規則引擎排出最適合的 5 項，每項附「因為聽到：…」。AI 聽到的狀況會列出來，聽錯可以點掉、漏聽可以補上，畫面立刻重新排名。描述內容不會上傳 |
 | 每月金額估算 | 依各項津貼的 115 年度金額估算每月可領多少：同一組不能重複領取的津貼（中低收入老人生活津貼、身障生活補助、原住民給付）只算最高的一項，知道收入級距時用該級距的金額 |
 | 資格初步比對 | 依 14 項補助與服務的條件，分成「很可能符合」、「可能符合，待確認」、「目前不符合」，並逐條說明哪些條件符合、哪些還不確定。也可以在「我的基本資料」一次填完所有問題 |
 | 鄰里關懷通報 | 「我擔心身邊的長輩」：勾選看到的狀況（好像一個人住、好幾天沒看到他、好像沒有好好吃飯…）、在地圖上標出大略位置，不需要知道對方姓名。系統依狀況建議社工訪視時可以評估的福利，送到社工的順路雷達。社工接手、去關心過之後，通報人會收到通知，但看不到任何細節 |
@@ -65,6 +66,7 @@
 ## 隱私設計
 
 - **資格資料只存在使用者的手機**（localStorage），比對也在手機上完成，不上傳伺服器。
+- **「用說的找福利」的描述只在手機上處理**：模型在瀏覽器的 Web Worker 裡執行，描述不會送到任何 API，也不會存起來；只有第一次會從本服務自己的網站下載模型檔（之後存在手機的快取裡，可以離線使用）。
 - 只有在使用者「請人協助申請」並勾選同意時，才把申請項目、聯絡方式與位置送出；資格摘要標籤（例如「65 歲以上」「獨居」）可以另外選擇不分享。
 - 位置可以選擇只提供行政區。志工端的座標一律在伺服器端模糊化，不會把精確位置送到志工的裝置。
 - 據點代為建檔時，必須記錄同意方式（書面、口頭並有見證人、法定代理人）。
@@ -81,6 +83,7 @@
   └─ WebView 開啟「福利找上門」
        ├─ flutterObject 雙向溝通：userinfo／location／notify／phone_call／open_link
        └─ Vue 3 微服務網頁（資格比對在手機上執行）
+             └─ Web Worker：Laya 模型（onnxruntime-web，WASM）在手機上聽懂描述
              │ REST API
              ▼
        Node.js + Express（同一個服務也提供前端靜態檔）
@@ -93,6 +96,8 @@
 | `server/` | API、權限與資料遮蔽（`privacy.ts`）、示範資料（`seed.ts`） |
 | `web/` | Vue 3 前端：民眾端 `views/citizen`、服務管理介面 `views/staff`、城市通溝通 `lib/bridge.ts` |
 | `scripts/` | 下載開放資料與地址轉座標的腳本 |
+| `laya/` | 「用說的找福利」的模型工具：匯出 ONNX、量化、評估（Python 與 Node） |
+| `shared/nl.ts`、`shared/layaSeq.ts` | 狀況問句、狀況→福利的權重與排名；模型輸入序列的組裝（與 Python 套件產生的 token 完全一致） |
 | `data/raw/` | 開放資料原始檔 |
 
 ## 快速開始
@@ -115,10 +120,31 @@ npm run dev
 其他指令：
 
 ```bash
-npm test            # 資格比對、最少提問、鄰里通報、進度通知的單元測試（24 個）
+npm test            # 資格比對、最少提問、鄰里通報、進度通知、用說的找福利的單元測試（35 個）
 npm run typecheck   # 型別檢查
 npm run build       # 建置前端到 dist/
 npm start           # 正式模式：同一個 Node 服務提供前端與 API
+```
+
+### 「用說的找福利」的模型檔
+
+模型檔太大，不放進版本控制（`web/public/models/`、`laya/artifacts/` 已列入 `.gitignore`）。第一次要自己產生（需要 Python 3.10 以上，約 10 分鐘）：
+
+```bash
+python3 -m venv laya/.venv && laya/.venv/bin/pip install "laya[onnx]"
+cd laya
+USE_TF=0 .venv/bin/python export_onnx.py   # 從 Hugging Face 下載 Laya 多語版，匯出 fp32 ONNX 與分詞器到 artifacts/
+USE_TF=0 .venv/bin/python quant_web.py      # 矩陣乘法權重 8 位元（MatMulNBits）
+USE_TF=0 .venv/bin/python quant_embed.py    # 嵌入表逐列 int8 → artifacts/laya-web.onnx（完整詞彙，約 334 MB）
+USE_TF=0 .venv/bin/python trim_vocab.py     # 詞彙裁成中文用 → web/public/models/laya/laya-zh.onnx、tokenizer-zh.json
+```
+
+網頁實際載入的是 `web/public/models/laya/` 的 `laya-zh.onnx`（約 174 MB）、`tokenizer-zh.json`（約 1 MB）、`tokenizer_config.json`。驗證與評估：
+
+```bash
+node laya/web-probs.mjs          # 用網頁同一套執行環境與模型重算 shared/fixtures 的機率
+node laya/nl-eval.ts laya-holdout.json   # 排名準確度（不用跑模型）
+/usr/bin/time -l node laya/mem-probe.mjs # 載入模型時的記憶體峰值
 ```
 
 ### 在城市通 App 中測試
@@ -163,6 +189,8 @@ fvm flutter run --dart-define=WELFARE_CARE_URL=https://你的服務網址/
 gcloud run deploy welfare-care --source . --region asia-east1
 ```
 
+> 部署前要先產生模型檔（見上方），容器會把 `web/public/models/` 一起打包（`.gcloudignore` 刻意不排除它）。
+>
 > SQLite 存在容器的暫存空間，執行個體重啟後資料會重設（重新載入示範資料）。正式上線應改用 Cloud SQL 等持久資料庫。
 
 ## 資料來源
@@ -202,7 +230,28 @@ gcloud run deploy welfare-care --source . --region asia-east1
 
 ## AI 使用聲明
 
-**執行階段：不使用任何 AI 推論。** 資格比對是可解釋的規則引擎（`shared/match.ts`），在使用者手機上執行，每一條判斷都能追溯到官方條文。
+**資格判斷不使用 AI。** 資格比對是可解釋的規則引擎（`shared/match.ts`），在使用者手機上執行，每一條判斷都能追溯到官方條文。
+
+**執行階段的 AI：只有「用說的找福利」，推論完全在裝置端進行**，不呼叫任何雲端 AI API，描述內容不離開手機，關閉網路後仍可使用（模型下載過之後）。
+
+| 項目 | 內容 |
+|---|---|
+| 模型 | [Laya](https://huggingface.co/convaiinnovations/laya) 多語版（`multilingual` 子資料夾），Convai Innovations 釋出的開源判斷模型，以 mmBERT-base 為基礎，約 3.2 億參數 |
+| 版本 | Hugging Face `convaiinnovations/laya` commit `7b928d828b7b0e022f929d9bd2e44165aa270148`；Python 套件 `laya` 0.4.27 |
+| 授權 | Apache-2.0 |
+| 格式與量化 | 以 `laya/export_onnx.py` 匯出 ONNX，再以 `laya/quant_web.py`、`laya/quant_embed.py` 量化：矩陣乘法權重 8 位元（ONNX `MatMulNBits`，運算仍為 fp32），嵌入表逐列 int8，與原始 PyTorch 模型的輸出差異約 0.04（logits）。再以 `laya/trim_vocab.py` 把 25.6 萬詞的詞彙裁成中文用的 38,298 個（中日韓漢字、中文與全形標點、數字、單一字元、byte fallback，以及模型輸入裡固定的英文句子），嵌入表只留這些列、重新編號，其餘權重不動：模型從約 334 MB 變成約 174 MB，中文描述算出的機率和裁剪前完全相同（`shared/nl.test.ts` 與 fixtures 驗證） |
+| 推論框架 | [onnxruntime-web](https://github.com/microsoft/onnxruntime) 1.30.0（WASM、單執行緒），在瀏覽器的 Web Worker 中執行；WASM 與模型檔都由本服務自己提供，不經 CDN |
+| 用途與分工 | 模型**只負責聽懂**：對 14 個狀況各回答一題是非題，得到「是」的機率。年齡用規則從文字中的數字讀出；**資格仍由規則引擎判斷**，排名公式在 `shared/nl.ts`，都可以解釋 |
+| 沒有微調 | 直接使用釋出的權重，沒有用任何個人資料訓練 |
+
+準確度（不微調、直接使用；用網頁版模型實測，資料在 `shared/fixtures/`）：
+
+| 測試組 | 第 1 名正確 | 前 5 名涵蓋正確答案（Recall@5） |
+|---|---|---|
+| 調整問句與權重時使用的 14 段描述 | 12/14 | 0.84 |
+| **沒看過的 10 段描述** | **6/10** | **0.62** |
+
+常見的漏判：「排灣族」沒聽出是原住民；「常重複問同樣的問題、找不到路回家」沒聽出是失智。所以畫面一律列出「AI 聽到的狀況」讓使用者修正，並保留不靠 AI 的「回答幾題」問答。
 
 **開發階段**使用雲端 AI 工具（Claude Code）協助：
 
@@ -221,6 +270,10 @@ gcloud run deploy welfare-care --source . --region asia-east1
 | [TypeScript](https://github.com/microsoft/TypeScript) | 型別（僅開發用） | Apache-2.0 |
 | [vue-tsc](https://github.com/vuejs/language-tools) | 型別檢查（僅開發用） | MIT |
 | [concurrently](https://github.com/open-cli-tools/concurrently) | 開發時同時啟動前後端（僅開發用） | MIT |
+| [onnxruntime-web](https://github.com/microsoft/onnxruntime) 1.30.0 | 在手機的瀏覽器裡執行 Laya 模型 | MIT |
+| [@huggingface/tokenizers](https://github.com/huggingface/tokenizers.js) 0.2.0 | 在手機上把描述切成 token（純 JavaScript） | Apache-2.0 |
+| [Laya](https://huggingface.co/convaiinnovations/laya) 多語版模型 | 用說的找福利（模型權重，不在版本控制中） | Apache-2.0 |
+| [laya](https://pypi.org/project/laya/)（Python） | 匯出與量化模型（僅開發用） | Apache-2.0 |
 
 資料庫使用 Node.js 內建的 `node:sqlite`，不需要額外套件。
 
@@ -229,7 +282,13 @@ gcloud run deploy welfare-care --source . --region asia-east1
 - **身分驗證**：MVP 以城市通 `userinfo` 的 id 識別民眾（`X-Citizen-Id`）。正式上線應改由城市通簽發、後端可驗證的權杖。服務人員帳號目前是示範用的 PIN，應改接市府帳號系統。
 - **資格資料維護**：門檻每年調整，下一步是建立後台讓社會局承辦人更新條件，並保留修訂紀錄。
 - **推播**：目前在使用者開著服務頁面時，每 8 秒檢查一次進度並透過 `notify` 推播；關掉服務期間的進度，會在下次打開時補通知並存進「通知」頁。正式版應由後端透過 App 推播通道（例如 FCM）即時通知。
-- **裝置端 AI（第二階段）**：以自訂 Handler 在手機上執行開源小模型，用白話解釋補助規定；推論完全在裝置端進行，符合競賽規範。
+- **用說的找福利**：
+  - 準確度有限（沒看過的描述，第 1 名正確 6/10），所以只當作入口，結果標明「AI 的初步判斷」，並讓使用者修正聽到的狀況。下一步是用 Laya 提供的微調腳本與標註資料微調。
+  - 第一次要下載約 190 MB（模型 174 MB＋WASM 14 MB），之後存在手機快取，可以離線使用。
+  - 描述裡的英文單字（例如「iPhone」）會逐字母切，因為詞彙只留中文用的部分；中文、數字、標點、emoji 不受影響。
+  - 記憶體：在 iOS 模擬器的城市通裡，WebView 程序穩定約 720 MB、載入時峰值約 1.1 GB（裁剪詞彙前是 1.5 GB／1.58 GB）。真機的記憶體上限因機型而異，舊手機可能會因記憶體不足關掉頁面；這時畫面會顯示錯誤並建議改用「回答幾題」。還沒在真機上量過。
+  - 速度：在 iOS 模擬器（用 Mac 的 CPU）推論約 4.4 秒，從快取載入約 1 秒；真機會更慢。多執行緒需要 COOP/COEP 標頭，會擋掉 OpenStreetMap 圖磚，之後可以試 WebGPU。
+  - Cache Storage 只在 HTTPS 或 localhost 下可用；在 Android 模擬器（`http://10.0.2.2`）每次開啟都要重新從電腦下載。
 - **路線**：順路雷達目前以直線距離估算（「多走多少」以離路線距離的兩倍估算），之後可以接開源路徑規劃（例如 OSRM 自架）計算實際繞路時間。
 - **金額估算**：每月金額只計入有固定金額的津貼，低收入戶生活扶助、急難救助等依個案核定的不計入；實際金額以核定為準。
 - **鄰里通報**：目前以每天 5 次的上限防止濫用。正式上線應與社會局既有的關懷通報窗口（例如 1957、社會安全網）整合，並由社工評估是否需要通報其他單位。

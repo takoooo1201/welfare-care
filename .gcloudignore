@@ -1,0 +1,16 @@
+# gcloud run deploy --source . 上傳時排除的檔案。
+# 和 .gitignore 幾乎一樣，但「刻意不排除」web/public/models/：模型檔不進版本控制，部署時要一起上傳。
+.gcloudignore
+.git
+.gitignore
+node_modules/
+dist/
+data/*.db
+data/*.db-*
+.DS_Store
+*.log
+.env
+.env.*
+laya/.venv/
+laya/artifacts/
+laya/__pycache__/
