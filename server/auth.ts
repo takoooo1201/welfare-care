@@ -1,7 +1,8 @@
 // 身分識別。
 // 民眾：MVP 以城市通 userinfo 的 id 透過 X-Citizen-Id 標頭傳入。
 //   正式上線時應改由城市通簽發、後端可驗證的權杖（見 README「已知限制」）。
-// 服務人員：帳號 + PIN 登入，取得隨機權杖（Bearer token）。
+// 服務人員：示範時選擇帳號即可登入（不需要密碼），取得隨機權杖（Bearer token）。
+//   正式上線時應改接市府帳號系統（見 README「已知限制」）。
 import { randomBytes } from 'node:crypto';
 import type { NextFunction, Request, Response } from 'express';
 import type { Staff } from '../shared/types.ts';

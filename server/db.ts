@@ -13,7 +13,7 @@ db.exec(`
   PRAGMA journal_mode = WAL;
   CREATE TABLE IF NOT EXISTS staff (
     id TEXT PRIMARY KEY, name TEXT NOT NULL, role TEXT NOT NULL,
-    org TEXT NOT NULL, district TEXT NOT NULL, pin TEXT NOT NULL
+    org TEXT NOT NULL, district TEXT NOT NULL
   );
   CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY, staff_id TEXT NOT NULL, created_at TEXT NOT NULL);
   CREATE TABLE IF NOT EXISTS cases (

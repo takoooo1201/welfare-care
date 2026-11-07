@@ -4,7 +4,6 @@ import { SIGNS, type Sign } from '../shared/report.ts';
 import type { CaseRecord, CaseStatus, Channel, HelpType, RouteStop, Staff } from '../shared/types.ts';
 import { db, saveCase, saveRoute } from './db.ts';
 
-export const DEMO_PIN = '1234';
 
 const STAFF: Staff[] = [
   { id: 'zs-office', name: '陳怡君', role: 'district_office', org: '中山區公所社會課', district: '中山區' },
@@ -107,8 +106,8 @@ const FLOW: CaseStatus[] = ['received', 'assigned', 'preparing', 'submitted'];
 export function seedIfEmpty(): void {
   const count = (db.prepare('SELECT COUNT(*) AS n FROM staff').get() as { n: number }).n;
   if (count > 0) return;
-  const insert = db.prepare('INSERT INTO staff (id, name, role, org, district, pin) VALUES (?, ?, ?, ?, ?, ?)');
-  for (const s of STAFF) insert.run(s.id, s.name, s.role, s.org, s.district, DEMO_PIN);
+  const insert = db.prepare('INSERT INTO staff (id, name, role, org, district) VALUES (?, ?, ?, ?, ?)');
+  for (const s of STAFF) insert.run(s.id, s.name, s.role, s.org, s.district);
   for (const [staffId, stops] of Object.entries(ROUTES)) saveRoute(staffId, stops);
 
   CASES.forEach((d, i) => {
@@ -159,5 +158,5 @@ export function seedIfEmpty(): void {
     };
     saveCase(c);
   });
-  console.log(`已建立示範資料：${STAFF.length} 位服務人員、${CASES.length} 筆個案（PIN：${DEMO_PIN}）`);
+  console.log(`已建立示範資料：${STAFF.length} 位服務人員、${CASES.length} 筆個案`);
 }

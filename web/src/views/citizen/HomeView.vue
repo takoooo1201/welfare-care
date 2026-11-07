@@ -12,7 +12,6 @@ import { api, type FamilyLink } from '@/lib/api';
 import { phoneCall } from '@/lib/bridge';
 import { FAMILY_DEMO, identity, setDemoAsFamily } from '@/lib/identity';
 import { inbox, type InboxItem, openedNotices, unreadCount } from '@/lib/inbox';
-import { isLargeText, setLargeText } from '@/lib/prefs';
 import { hasSavedProfile, loadProfile } from '@/lib/profile';
 import { money } from '@/lib/tween';
 
@@ -34,7 +33,6 @@ const elders = ref<FamilyLink[]>([]);
 const helpers = ref<FamilyLink[]>([]);
 const reports = ref<MyReport[]>([]);
 const reportsCared = computed(() => reports.value.filter((r) => r.stage !== 'received').length);
-const largeText = ref(isLargeText());
 const active = computed(() => cases.value.filter((c) => c.status !== 'closed'));
 const unread = computed(() => inbox.items.filter((i) => !i.read));
 
@@ -61,11 +59,6 @@ function progress(c: CaseRecord): number {
 function openNotice(i: InboxItem) {
   openedNotices([i.id]);
   router.push(i.link);
-}
-
-function toggleLarge() {
-  largeText.value = !largeText.value;
-  setLargeText(largeText.value);
 }
 </script>
 
@@ -167,18 +160,6 @@ function toggleLarge() {
       <div class="call-grid">
         <button type="button" class="btn btn-secondary" @click="phoneCall('1957')">📞 福利諮詢 1957</button>
         <button type="button" class="btn btn-secondary" @click="phoneCall('1999')">📞 市民熱線 1999</button>
-      </div>
-    </section>
-
-    <section class="card">
-      <div class="spread">
-        <div>
-          <h3>大字模式</h3>
-          <p class="small muted">把文字和按鈕放大</p>
-        </div>
-        <button type="button" class="btn btn-sm" :class="largeText ? 'btn-primary' : 'btn-secondary'" :aria-pressed="largeText" @click="toggleLarge">
-          {{ largeText ? '已開啟' : '開啟' }}
-        </button>
       </div>
     </section>
 

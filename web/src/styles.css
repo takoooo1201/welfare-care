@@ -32,9 +32,6 @@
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
 }
-html.large-text {
-  font-size: 20px;
-}
 * {
   box-sizing: border-box;
 }
@@ -498,8 +495,4 @@ input[type='date'].input::-webkit-date-and-time-value {
 .nowrap {
   white-space: nowrap;
   flex: none;
-}
-/* 大字模式：首頁的撥號按鈕改成上下排列，避免超出畫面 */
-html.large-text .call-grid {
-  grid-template-columns: 1fr;
 }

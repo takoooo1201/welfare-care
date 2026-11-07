@@ -13,11 +13,12 @@ staffRouter.get('/staff/directory', (_req, res) => {
   res.json(listStaff());
 });
 
+/** 示範用：選擇帳號即可登入，不需要密碼（正式環境應改接市府帳號系統） */
 staffRouter.post('/staff/login', (req, res) => {
-  const { staffId, pin } = req.body ?? {};
-  const row = db.prepare('SELECT pin FROM staff WHERE id = ?').get(String(staffId ?? '')) as { pin: string } | undefined;
-  if (!row || row.pin !== String(pin ?? '')) throw new HttpError(401, '帳號或 PIN 碼不正確');
-  res.json({ token: createSession(String(staffId)), staff: getStaff(String(staffId)) });
+  const staffId = String(req.body?.staffId ?? '');
+  const staff = staffId ? getStaff(staffId) : null;
+  if (!staff) throw new HttpError(401, '找不到這個帳號');
+  res.json({ token: createSession(staffId), staff });
 });
 
 staffRouter.post('/staff/logout', (req, res) => {

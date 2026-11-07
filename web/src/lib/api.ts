@@ -131,7 +131,7 @@ export const api = {
 
   staff: {
     directory: () => req<Staff[]>('/api/staff/directory'),
-    login: (staffId: string, pin: string) => req<{ token: string; staff: Staff }>('/api/staff/login', { method: 'POST', body: { staffId, pin } }),
+    login: (staffId: string) => req<{ token: string; staff: Staff }>('/api/staff/login', { method: 'POST', body: { staffId } }),
     logout: () => req<void>('/api/staff/logout', { method: 'POST', staff: true }),
     me: () => req<{ staff: Staff; allowedStatuses: CaseStatus[] }>('/api/staff/me', { staff: true }),
     team: () => req<Staff[]>('/api/staff/team', { staff: true }),
