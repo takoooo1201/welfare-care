@@ -1,0 +1,471 @@
+/* 色票沿用城市通（TownPass）設計規範：Primary #5AB4C5、Secondary #F5BA4B、Grayscale #738995。
+   主色較淺，白字對比不足，因此按鈕與文字另用加深的主色，維持 4.5:1 以上對比。 */
+:root {
+  --tp-primary: #5ab4c5;
+  --tp-primary-dark: #1d6f80;
+  --tp-primary-50: #eef8fa;
+  --tp-primary-100: #d6eef3;
+  --tp-secondary: #f5ba4b;
+  --tp-secondary-50: #fef6e5;
+  --gray-50: #f5f7f8;
+  --gray-100: #eceff1;
+  --gray-200: #dbe2e6;
+  --gray-300: #c3cdd3;
+  --gray-500: #738995;
+  --gray-600: #56696f;
+  --gray-700: #3b4c55;
+  --gray-900: #1b252b;
+  --ok: #23703f;
+  --ok-bg: #e5f4ea;
+  --warn: #8a5300;
+  --warn-bg: #fdf1d8;
+  --bad: #a3271d;
+  --bad-bg: #fbe7e5;
+  --info-bg: #eaf2fb;
+  --radius: 14px;
+  --shadow: 0 1px 2px rgb(27 37 43 / 6%), 0 4px 14px rgb(27 37 43 / 6%);
+  font-family: 'PingFang TC', 'Noto Sans TC', 'Microsoft JhengHei', Roboto, system-ui, sans-serif;
+  font-size: 17px;
+  line-height: 1.6;
+  color: var(--gray-900);
+  background: var(--gray-50);
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+html.large-text {
+  font-size: 20px;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: var(--gray-50);
+}
+h1,
+h2,
+h3 {
+  line-height: 1.35;
+  margin: 0;
+}
+h1 {
+  font-size: 1.5rem;
+}
+h2 {
+  font-size: 1.2rem;
+}
+h3 {
+  font-size: 1.05rem;
+}
+p {
+  margin: 0;
+}
+a {
+  color: var(--tp-primary-dark);
+}
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+/* 避免 WebView 的點擊延遲與雙擊縮放吃掉第一次點擊 */
+a,
+button,
+label,
+input,
+select {
+  touch-action: manipulation;
+}
+:focus-visible {
+  outline: 3px solid var(--tp-secondary);
+  outline-offset: 2px;
+}
+
+/* ── 版面 ── */
+.page {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 16px 16px 128px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.spread {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.muted {
+  color: var(--gray-600);
+}
+.small {
+  font-size: 0.88rem;
+}
+.center {
+  text-align: center;
+}
+.section-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-top: 8px;
+}
+
+/* ── 頂部列 ── */
+.appbar {
+  position: sticky;
+  top: 0;
+  z-index: 500;
+  background: #fff;
+  border-bottom: 1px solid var(--gray-100);
+  display: grid;
+  grid-template-columns: 48px 1fr 48px;
+  align-items: center;
+  min-height: 56px;
+  padding: 0 8px;
+}
+.appbar h1 {
+  font-size: 1.12rem;
+  text-align: center;
+  grid-column: 2;
+}
+.appbar .appbar-right {
+  grid-column: 3;
+  justify-self: end;
+}
+.icon-btn {
+  width: 48px;
+  height: 48px;
+  border: none;
+  background: transparent;
+  border-radius: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--gray-900);
+}
+.icon-btn:active {
+  background: var(--gray-100);
+}
+
+/* ── 卡片 ── */
+.card {
+  background: #fff;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.card.tappable {
+  cursor: pointer;
+  border: none;
+  text-align: left;
+  width: 100%;
+}
+.card.tappable:active {
+  background: var(--gray-50);
+}
+.hero {
+  background: linear-gradient(135deg, var(--tp-primary-50), #fff 70%);
+  border: 1px solid var(--tp-primary-100);
+}
+.notice {
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: var(--info-bg);
+  font-size: 0.92rem;
+}
+.notice.warn {
+  background: var(--warn-bg);
+  color: var(--warn);
+}
+.notice.ok {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+.notice.bad {
+  background: var(--bad-bg);
+  color: var(--bad);
+}
+
+/* ── 按鈕 ── */
+.btn {
+  min-height: 52px;
+  padding: 0 20px;
+  border-radius: 12px;
+  font-size: 1.02rem;
+  font-weight: 600;
+  border: 2px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  text-decoration: none;
+  line-height: 1.3;
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn-primary {
+  background: var(--tp-primary-dark);
+  color: #fff;
+}
+.btn-primary:active:not(:disabled) {
+  background: #155a68;
+}
+.btn-secondary {
+  background: #fff;
+  color: var(--tp-primary-dark);
+  border-color: var(--tp-primary);
+}
+.btn-accent {
+  background: var(--tp-secondary);
+  color: var(--gray-900);
+}
+.btn-ghost {
+  background: transparent;
+  color: var(--tp-primary-dark);
+}
+.btn-danger {
+  background: #fff;
+  color: var(--bad);
+  border-color: #e9b4ae;
+}
+.btn-block {
+  width: 100%;
+}
+.btn-sm {
+  min-height: 40px;
+  padding: 0 14px;
+  font-size: 0.92rem;
+  border-radius: 10px;
+}
+
+/* ── 選項按鈕 ── */
+.choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.choice {
+  min-height: 48px;
+  padding: 8px 16px;
+  border-radius: 24px;
+  border: 2px solid var(--gray-200);
+  background: #fff;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1.3;
+}
+.choice[aria-pressed='true'] {
+  border-color: var(--tp-primary-dark);
+  background: var(--tp-primary-50);
+  color: var(--tp-primary-dark);
+  font-weight: 700;
+}
+
+/* ── 表單 ── */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.field > label,
+.field > .label {
+  font-weight: 700;
+}
+.field .hint {
+  font-size: 0.88rem;
+  color: var(--gray-600);
+  margin-top: -4px;
+}
+.input,
+select.input,
+textarea.input {
+  min-height: 52px;
+  border-radius: 12px;
+  border: 2px solid var(--gray-200);
+  background: #fff;
+  padding: 10px 14px;
+  width: 100%;
+}
+.input:focus {
+  border-color: var(--tp-primary-dark);
+  outline: none;
+}
+/* iOS 的日期欄位有固定寬度，會超出畫面 */
+input[type='date'].input {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  text-align: left;
+}
+input[type='date'].input::-webkit-date-and-time-value {
+  text-align: left;
+}
+.check {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--gray-50);
+  cursor: pointer;
+}
+.check input {
+  width: 24px;
+  height: 24px;
+  margin: 2px 0 0;
+  accent-color: var(--tp-primary-dark);
+  flex: none;
+}
+
+/* ── 標籤 ── */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  background: var(--gray-100);
+  color: var(--gray-700);
+  white-space: nowrap;
+}
+.chip.primary {
+  background: var(--tp-primary-50);
+  color: var(--tp-primary-dark);
+}
+.chip.ok {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+.chip.warn {
+  background: var(--warn-bg);
+  color: var(--warn);
+}
+.chip.bad {
+  background: var(--bad-bg);
+  color: var(--bad);
+}
+.chip.accent {
+  background: var(--tp-secondary-50);
+  color: var(--warn);
+}
+
+/* ── 底部固定列 ── */
+.sticky-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 600;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  background: #fff;
+  border-top: 1px solid var(--gray-200);
+}
+.sticky-bar > * {
+  max-width: 608px;
+  margin: 0 auto;
+}
+
+/* ── 提示訊息 ── */
+.toast {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  top: calc(12px + env(safe-area-inset-top));
+  z-index: 2000;
+  max-width: 520px;
+  margin: 0 auto;
+  background: var(--gray-900);
+  color: #fff;
+  padding: 14px 16px;
+  border-radius: 14px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 25%);
+  font-size: 0.95rem;
+}
+.toast-enter-active,
+.toast-leave-active {
+  transition: all 0.25s ease;
+}
+.toast-enter-from,
+.toast-leave-to {
+  opacity: 0;
+  transform: translateY(-12px);
+}
+
+.empty {
+  text-align: center;
+  color: var(--gray-600);
+  padding: 32px 16px;
+}
+.loading {
+  padding: 48px 16px;
+  text-align: center;
+  color: var(--gray-600);
+}
+.divider {
+  height: 1px;
+  background: var(--gray-100);
+  margin: 4px 0;
+}
+.big-code {
+  font-size: 2.4rem;
+  font-weight: 800;
+  letter-spacing: 0.3em;
+  color: var(--tp-primary-dark);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.debug-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 96px;
+  z-index: 3000;
+  background: rgb(0 0 0 / 70%);
+  color: #fff;
+  font: 11px/1.4 ui-monospace, monospace;
+  padding: 4px 8px;
+  pointer-events: none;
+}
+
+/* ── Leaflet 調整 ── */
+.leaflet-container {
+  font: inherit;
+  font-size: 0.88rem;
+}
+.map-pin {
+  border-radius: 50%;
+  border: 3px solid #fff;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 35%);
+  color: #fff;
+  font-weight: 800;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

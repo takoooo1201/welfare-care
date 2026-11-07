@@ -1,0 +1,237 @@
+<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
+import { RESOURCE_BY_ID } from '@shared/data/resources.ts';
+import { CHANNEL_LABEL, HELP_TYPE_LABEL, STATUS_LABEL } from '@shared/labels.ts';
+import type { CaseRecord, CaseStatus, Staff } from '@shared/types.ts';
+import LeafletMap from '@/components/LeafletMap.vue';
+import StatusSteps from '@/components/StatusSteps.vue';
+import { api } from '@/lib/api';
+import { staffSession } from '@/lib/staffSession';
+import { STATUS_COLOR, STATUS_CHIP } from '@/lib/staffUi';
+import { useToast } from '@/lib/toast';
+
+const props = defineProps<{ id: string }>();
+const router = useRouter();
+const toast = useToast();
+const c = ref<CaseRecord | null>(null);
+const team = ref<Staff[]>([]);
+const note = ref('');
+const busy = ref(false);
+const error = ref('');
+
+const me = computed(() => staffSession.staff);
+const isMine = computed(() => c.value?.assigneeId === me.value?.id);
+const isVolunteer = computed(() => me.value?.role === 'volunteer');
+const canClaim = computed(() => !!c.value && c.value.status !== 'closed' && !c.value.assigneeId);
+const statusButtons = computed(() =>
+  staffSession.allowedStatuses.filter((s) => s !== c.value?.status && (!isVolunteer.value || isMine.value)),
+);
+const fmt = (iso: string) => new Date(iso).toLocaleString('zh-TW', { hour12: false });
+
+onMounted(async () => {
+  try {
+    c.value = await api.staff.case(props.id);
+    if (me.value?.role === 'district_office') team.value = await api.staff.team();
+  } catch (e) {
+    error.value = (e as Error).message;
+  }
+});
+
+async function claim(assigneeId?: string) {
+  if (!c.value) return;
+  busy.value = true;
+  try {
+    c.value = await api.staff.assign(c.value.id, assigneeId);
+    toast('已安排人員，民眾會收到通知');
+  } catch (e) {
+    toast((e as Error).message);
+  } finally {
+    busy.value = false;
+  }
+}
+
+async function setStatus(status: CaseStatus) {
+  if (!c.value) return;
+  busy.value = true;
+  try {
+    c.value = await api.staff.setStatus(c.value.id, status, note.value);
+    note.value = '';
+    toast(`已更新為「${STATUS_LABEL[status]}」，民眾與家屬會收到通知`);
+  } catch (e) {
+    toast((e as Error).message);
+  } finally {
+    busy.value = false;
+  }
+}
+</script>
+
+<template>
+  <main class="detail">
+    <button type="button" class="btn btn-ghost btn-sm" @click="router.back()">‹ 返回</button>
+    <p v-if="error" class="notice bad">{{ error }}</p>
+    <div v-else-if="!c" class="loading">載入中…</div>
+    <template v-else>
+      <section class="card">
+        <div class="spread">
+          <h1>{{ c.citizenName }}</h1>
+          <span class="chip" :class="STATUS_CHIP[c.status]">{{ STATUS_LABEL[c.status] }}</span>
+        </div>
+        <p class="small muted">{{ c.id }}・{{ CHANNEL_LABEL[c.channel] }}・建立於 {{ fmt(c.createdAt) }}</p>
+        <StatusSteps :status="c.status" />
+      </section>
+
+      <div class="cols">
+        <section class="card">
+          <h2>需求內容</h2>
+          <dl>
+            <dt>申請項目</dt>
+            <dd>
+              <template v-if="c.resourceIds.length">
+                <div v-for="id in c.resourceIds" :key="id">{{ RESOURCE_BY_ID.get(id)?.name ?? id }}</div>
+              </template>
+              <span v-else class="muted">接案後顯示</span>
+            </dd>
+            <dt>需要的協助</dt>
+            <dd class="row"><span v-for="h in c.helpTypes" :key="h" class="chip accent">{{ HELP_TYPE_LABEL[h] }}</span></dd>
+            <dt v-if="c.tags.length">資格摘要</dt>
+            <dd v-if="c.tags.length" class="row"><span v-for="t in c.tags" :key="t" class="chip">{{ t }}</span></dd>
+            <dt v-if="c.note">備註</dt>
+            <dd v-if="c.note">{{ c.note }}</dd>
+          </dl>
+
+          <h2>聯絡方式</h2>
+          <p v-if="isVolunteer && !isMine" class="notice">接案後才會顯示姓名、電話與地址。</p>
+          <dl v-else>
+            <dt>電話</dt>
+            <dd>
+              <a v-if="c.phone" :href="`tel:${c.phone.replace(/[^\d#]/g, '')}`">{{ c.phone }}</a>
+              <span v-else class="muted">未提供</span>
+            </dd>
+            <dt>地址</dt>
+            <dd>{{ c.district }}{{ c.village ?? '' }}　{{ c.address ?? '' }}</dd>
+            <dt>同意紀錄</dt>
+            <dd class="small">
+              {{ c.consent.method ? `代為建檔・${c.consent.method}` : '民眾於 App 勾選同意' }}・位置{{ c.consent.shareLocation ? '已同意分享' : '未分享' }}
+            </dd>
+          </dl>
+
+          <div v-if="c.documents.length">
+            <h2>文件準備</h2>
+            <ul class="docs">
+              <li v-for="d in c.documents" :key="d.name">
+                <span :class="d.ready ? 'ok-text' : 'muted'">{{ d.ready ? '✓' : '○' }}</span> {{ d.name }}
+                <span v-if="d.by" class="small muted">（{{ d.by }}）</span>
+              </li>
+            </ul>
+          </div>
+        </section>
+
+        <section class="stack">
+          <LeafletMap
+            v-if="c.location"
+            :markers="[{ id: c.id, lat: c.location.lat, lng: c.location.lng, color: STATUS_COLOR[c.status], title: c.citizenName, approximate: c.location.approximate }]"
+            height="240px"
+            :zoom="16"
+            :center="c.location"
+          />
+          <p v-if="c.location?.approximate" class="small muted">虛線圈為大略位置（約 300 公尺內）</p>
+          <p v-else-if="c.location?.source === 'address'" class="small muted">位置為行政區概略位置</p>
+
+          <div class="card">
+            <h2>處理</h2>
+            <template v-if="canClaim">
+              <button type="button" class="btn btn-primary btn-block" :disabled="busy" @click="claim()">我來接案</button>
+              <select v-if="me?.role === 'district_office'" class="input" aria-label="指派給同仁" @change="claim(($event.target as HTMLSelectElement).value)">
+                <option value="">或指派給同仁…</option>
+                <option v-for="s in team.filter((t) => t.id !== me?.id)" :key="s.id" :value="s.id">{{ s.name }}（{{ s.org }}）</option>
+              </select>
+            </template>
+            <p v-else-if="c.assigneeName" class="small">負責人員：<strong>{{ c.assigneeName }}</strong></p>
+
+            <template v-if="statusButtons.length && !canClaim">
+              <textarea v-model="note" class="input" rows="2" maxlength="200" placeholder="處理紀錄（會顯示在民眾的進度中）"></textarea>
+              <div class="row">
+                <button v-for="s in statusButtons" :key="s" type="button" class="btn btn-sm btn-secondary" :disabled="busy" @click="setStatus(s)">
+                  改為「{{ STATUS_LABEL[s] }}」
+                </button>
+              </div>
+            </template>
+          </div>
+
+          <div class="card">
+            <h2>處理紀錄</h2>
+            <ol class="timeline">
+              <li v-for="(t, i) in [...c.timeline].reverse()" :key="i">
+                <span class="small muted">{{ fmt(t.at) }}</span>
+                <span><strong>{{ STATUS_LABEL[t.status] }}</strong>・{{ t.by }}</span>
+                <span v-if="t.note" class="small">{{ t.note }}</span>
+              </li>
+            </ol>
+          </div>
+        </section>
+      </div>
+    </template>
+  </main>
+</template>
+
+<style scoped>
+.detail {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: stretch;
+}
+.detail > .btn {
+  align-self: flex-start;
+}
+.cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 8px 12px;
+}
+dt {
+  color: var(--gray-600);
+  font-size: 0.9rem;
+}
+dd {
+  margin: 0;
+}
+.docs {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.ok-text {
+  color: var(--ok);
+  font-weight: 800;
+}
+.timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 14px;
+  border-left: 3px solid var(--tp-primary-100);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.timeline li {
+  display: flex;
+  flex-direction: column;
+}
+@media (max-width: 800px) {
+  .cols {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
